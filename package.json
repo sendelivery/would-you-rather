@@ -6,7 +6,8 @@
   "scripts": {
     "build": "tsc",
     "dev": "nodemon src/index.ts",
-    "start": "node ."
+    "start": "node .",
+    "migrate-dev": "prisma migrate dev"
   },
   "engines": {
     "node": "16.x"
