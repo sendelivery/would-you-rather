@@ -14,7 +14,9 @@ export const commands: Collection<
 // try catch
 const eventFiles = fs
   .readdirSync(path.resolve(__dirname, "events/"))
-  .filter((file) => file.endsWith(process.env.NODE_ENV === "dev" ? ".ts" : ".js"));
+  .filter((file) =>
+    file.endsWith(process.env.NODE_ENV === "dev" ? ".ts" : ".js")
+  );
 
 for (const file of eventFiles) {
   const event = require(`./events/${file}`);

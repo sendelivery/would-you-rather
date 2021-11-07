@@ -4,21 +4,16 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.commands = void 0;
-const fs_1 = __importDefault(require("fs"));
 const discord_js_1 = require("discord.js");
+const fs_1 = __importDefault(require("fs"));
+const path_1 = __importDefault(require("path"));
 require("dotenv").config();
 const client = new discord_js_1.Client({ intents: [discord_js_1.Intents.FLAGS.GUILDS] });
 exports.commands = new discord_js_1.Collection();
-const commandFiles = fs_1.default
-    .readdirSync("./src/commands")
-    .filter((file) => file.endsWith(".js"));
-for (const file of commandFiles) {
-    const command = require(`./commands/${file}`);
-    exports.commands.set(command.data.name, command);
-}
+// try catch
 const eventFiles = fs_1.default
-    .readdirSync("./src/events")
-    .filter((file) => file.endsWith(".js"));
+    .readdirSync(path_1.default.resolve(__dirname, "events/"))
+    .filter((file) => file.endsWith(process.env.NODE_ENV === "dev" ? ".ts" : ".js"));
 for (const file of eventFiles) {
     const event = require(`./events/${file}`);
     if (event.once) {

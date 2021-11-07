@@ -12,8 +12,11 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.execute = exports.data = void 0;
 const builders_1 = require("@discordjs/builders");
 exports.data = new builders_1.SlashCommandBuilder()
-    .setName("ping")
-    .setDescription("Replies with Pong!");
-const execute = (interaction) => __awaiter(void 0, void 0, void 0, function* () { return yield interaction.reply("Pong!"); });
+    .setName("wyr")
+    .setDescription("Selects a question from Would You Rather's database!");
+const execute = (interaction) => __awaiter(void 0, void 0, void 0, function* () {
+    const question = "Question";
+    yield interaction.reply(question);
+});
 exports.execute = execute;
-//# sourceMappingURL=ping.js.map
+//# sourceMappingURL=would-you-rather.js.map
