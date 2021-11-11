@@ -66,7 +66,7 @@ export const execute = async (interaction: CommandInteraction) => {
   if (!interaction.channel) return;
   const collector = interaction.channel.createMessageComponentCollector({
     componentType: "BUTTON",
-    time: 10000,
+    time: 60000,
   });
 
   collector.on("collect", async (interaction) => {
@@ -84,7 +84,7 @@ export const execute = async (interaction: CommandInteraction) => {
       await incrementVote(
         interaction,
         {
-          votes1: { increment: 1 },
+          votes0: { increment: 1 },
         },
         qInteraction.id
       );
