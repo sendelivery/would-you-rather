@@ -11,11 +11,31 @@ datasource db {
 }
 
 model Question {
-  id        Int      @id @default(autoincrement())
-  message   String   @db.VarChar(255)
-  answer0   String
-  votes0    Int
-  answer1   String
-  votes1    Int
-  author    String
+  id              Int             @id @default(autoincrement())
+  message         String          @db.VarChar(255)
+  answer0         String
+  answer1         String
+  author          String
+  interactions    Interaction[]
+}
+
+model Interaction {
+  id    Int    @id @default(autoincrement())
+  commandId       String          @unique
+  question        Question        @relation(fields: [questionId], references: [id])
+  questionId      Int
+  votes0          Int             @default(0)
+  votes1          Int             @default(0)
+  time            DateTime        @default(now())
+  interactors     Interactor[]
+
+  @@map("interaction")
+}
+
+model Interactor {
+  id    Int    @id @default(autoincrement())
+  userId          String          @unique
+  interactions    Interaction[]
+
+  @@map("interactor")
 }

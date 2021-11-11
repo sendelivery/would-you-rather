@@ -4,12 +4,10 @@ import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
-interface Question {
+interface IQuestion {
   message: string;
   answer0: string;
-  votes0: number;
   answer1: string;
-  votes1: number;
   author: string;
 }
 
@@ -30,15 +28,13 @@ export const data = new SlashCommandBuilder()
   );
 
 export const execute = async (interaction: CommandInteraction) => {
-  const ans0 = interaction.options.getString("answer1", true);
-  const ans1 = interaction.options.getString("answer2", true);
+  const ans0 = interaction.options.getString("answer1", true).toLowerCase();
+  const ans1 = interaction.options.getString("answer2", true).toLowerCase();
 
-  const question: Question = {
+  const question: IQuestion = {
     message: `**${ans0}** or **${ans1}**`,
     answer0: ans0,
-    votes0: 0,
     answer1: ans1,
-    votes1: 0,
     author: interaction.user.tag
   };
 
@@ -50,5 +46,5 @@ export const execute = async (interaction: CommandInteraction) => {
 
   console.log(newQuestion, " success!");
 
-  await interaction.reply(`<@!${interaction.user.id}> submitted: Would you rather ${question.message}?`);
+  await interaction.reply({ content: `You submitted: Would you rather ${question.message}?`, ephemeral: true });
 };
