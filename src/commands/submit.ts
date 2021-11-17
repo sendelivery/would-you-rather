@@ -13,7 +13,7 @@ interface IQuestion {
 
 export const data = new SlashCommandBuilder()
   .setName("submit")
-  .setDescription("Submit a question to Would You Rather's database :9")
+  .setDescription("Submit a question to Would You Rather's database.")
   .addStringOption((option) =>
     option
       .setName("answer1")
@@ -23,7 +23,7 @@ export const data = new SlashCommandBuilder()
   .addStringOption((option) =>
     option
       .setName("answer2")
-      .setDescription("Now a different one for answer 2")
+      .setDescription("Now something else for answer 2")
       .setRequired(true)
   );
 

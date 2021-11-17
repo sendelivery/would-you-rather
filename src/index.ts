@@ -11,7 +11,6 @@ export const commands: Collection<
   { execute: Function; data: SlashCommandBuilder }
 > = new Collection();
 
-// try catch
 const eventFiles = fs
   .readdirSync(path.resolve(__dirname, "events/"))
   .filter((file) =>

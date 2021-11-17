@@ -1,12 +1,12 @@
 import {
-  Channel,
   CommandInteraction,
   MessageActionRow,
   MessageButton,
   MessageComponentInteraction,
 } from "discord.js";
-import { SlashCommandBuilder, time } from "@discordjs/builders";
+import { SlashCommandBuilder } from "@discordjs/builders";
 import { PrismaClient } from "@prisma/client";
+import state from "../state/state";
 
 const prisma = new PrismaClient();
 
@@ -22,38 +22,47 @@ export const data = new SlashCommandBuilder()
       .setRequired(false)
   );
 
-export const execute = async (interaction: CommandInteraction) => {
-  let timer;
-  if (interaction.options.getString("time", false)) {
-    timer = Number(interaction.options.getString("time", false));
+export const execute = async (commandInteraction: CommandInteraction) => {
+  if (state.getActive()) {
+    await commandInteraction.reply({
+      content:
+        "Hey, a would you rather question is already active above! Aren't you paying attention?",
+      ephemeral: true,
+    });
+
+    return;
   }
 
+  state.setActive(true);
+
+  let timer;
+  if (commandInteraction.options.getString("time", false)) {
+    timer = Number(commandInteraction.options.getString("time", false));
+  }
+
+  // Make sure the timer isn't nonsense and is between 5 and 120 seconds basically.
   if ((timer && timer !== NaN) || (timer && timer !== 0)) {
-    console.log(1);
     timer = Math.min(Math.max(timer, 5), 120);
   } else {
-    console.log(2);
     timer = 60;
   }
 
-  // TODO: if current active wyr, i.e. interaction { active: true } => return ephemeral "wyr in progress"
-  // TODO: active: false on timeout
-  const currentInteraction = interaction;
   const count = await prisma.question.count();
+  const id = Math.floor(Math.random() * count) + 1;
 
+  // Retrieve a random question
   const question = await prisma.question.findUnique({
     where: {
-      id: Math.floor(Math.random() * count) + 1,
+      id: id,
     },
   });
 
   if (!question) {
-    return await currentInteraction.reply(
-      `Could not find question of matching id ${count}.`
+    return await commandInteraction.reply(
+      `Could not find question of matching id ${id}.`
     );
   }
 
-  // TODO: clicking a button again should change the vote
   const row = new MessageActionRow()
     .addComponents(
       new MessageButton()
@@ -70,51 +79,55 @@ export const execute = async (interaction: CommandInteraction) => {
 
   const qInteraction = await prisma.interaction.upsert({
     where: {
-      commandId: currentInteraction.id,
+      commandId: commandInteraction.id,
     },
     update: {},
     create: {
-      commandId: currentInteraction.id,
+      commandId: commandInteraction.id,
       questionId: question.id,
     },
   });
 
-  await currentInteraction.reply({
+  await commandInteraction.reply({
     content: `Would you rather ${question.message}?`,
     components: [row],
   });
 
-  if (!currentInteraction.channel) return;
-  const collector = currentInteraction.channel.createMessageComponentCollector({
+  if (!commandInteraction.channel) return;
+  const collector = commandInteraction.channel.createMessageComponentCollector({
     componentType: "BUTTON",
     time: timer * 1000,
   });
 
-  collector.on("collect", async (interaction) => {
-    if (interaction.customId === "ans0") {
+  // TODO: clicking a button again should change the vote
+  collector.on("collect", async (buttonInteraction) => {
+    // First we check if this interactor has already cast a vote for this interaction.
+    // If so then we swap the vote (upsert?), otherwise continue the normal flow.
+
+    if (buttonInteraction.customId === "ans0") {
       await incrementVote(
-        interaction,
+        buttonInteraction,
         {
           votes0: { increment: 1 },
         },
         qInteraction.id
       );
 
-      await interaction.reply({
+      await buttonInteraction.reply({
         content: `You voted for ${question.answer0}`,
         ephemeral: true,
       });
     }
-    if (interaction.customId === "ans1") {
+    if (buttonInteraction.customId === "ans1") {
       await incrementVote(
-        interaction,
+        buttonInteraction,
         {
           votes1: { increment: 1 },
         },
         qInteraction.id
       );
 
-      await interaction.reply({
+      await buttonInteraction.reply({
         content: `You voted for ${question.answer1}`,
         ephemeral: true,
       });
@@ -138,20 +151,15 @@ export const execute = async (interaction: CommandInteraction) => {
     const [winner, wVotes] =
       votes0 > votes1 ? [question.answer0, votes0] : [question.answer1, votes1];
 
-    currentInteraction.editReply({
+    await commandInteraction.editReply({
       components: [],
     });
 
-    // const channelId = interaction.channelId;
-    // const channel: any = interaction.client.channels.cache.get(channelId); // Why am I using any
-
-    // if (!channel) { console.log("Uh oh"); return; }
-
-    // channel.send(`...And the winner is... **${winner}** with **${wVotes}** votes!`);
-
-    await currentInteraction.followUp(
+    await commandInteraction.followUp(
       `...And the winner is... **${winner}** with **${wVotes}** votes!`
     );
+
+    state.setActive(false);
   });
 };
 

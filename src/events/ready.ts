@@ -1,7 +1,7 @@
 import { Client } from "discord.js";
 import fs from "fs";
 import path from "path";
-import { cyan, red } from "chalk";
+import { cyan } from "chalk";
 import { commands } from "..";
 import { registerCommands } from "../deploy-commands";
 
@@ -11,7 +11,7 @@ module.exports = {
   async execute(client: Client<true>) {
     console.log(cyan(`Ready! Logged in as ${client.user.tag}`));
 
-    const commandFiles = fs // if null check
+    const commandFiles = fs
       .readdirSync(path.resolve(__dirname, "../commands/"))
       .filter((file) =>
         file.endsWith(process.env.NODE_ENV === "dev" ? ".ts" : ".js")
