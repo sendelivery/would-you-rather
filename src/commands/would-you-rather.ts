@@ -7,6 +7,7 @@ import {
 import { SlashCommandBuilder } from "@discordjs/builders";
 import { PrismaClient } from "@prisma/client";
 import state from "../state/state";
+import { yellow } from "chalk";
 
 const prisma = new PrismaClient();
 
@@ -99,38 +100,86 @@ export const execute = async (commandInteraction: CommandInteraction) => {
     time: timer * 1000,
   });
 
-  // TODO: clicking a button again should change the vote
   collector.on("collect", async (buttonInteraction) => {
     // First we check if this interactor has already cast a vote for this interaction.
-    // If so then we swap the vote (upsert?), otherwise continue the normal flow.
-
-    if (buttonInteraction.customId === "ans0") {
-      await incrementVote(
-        buttonInteraction,
-        {
-          votes0: { increment: 1 },
+    const interactor = await prisma.interaction
+      .findUnique({
+        where: {
+          commandId: commandInteraction.id,
         },
-        qInteraction.id
-      );
-
-      await buttonInteraction.reply({
-        content: `You voted for ${question.answer0}`,
-        ephemeral: true,
-      });
-    }
-    if (buttonInteraction.customId === "ans1") {
-      await incrementVote(
-        buttonInteraction,
-        {
-          votes1: { increment: 1 },
+      })
+      .interactors({
+        where: {
+          userId: buttonInteraction.user.id,
         },
-        qInteraction.id
-      );
-
-      await buttonInteraction.reply({
-        content: `You voted for ${question.answer1}`,
-        ephemeral: true,
       });
+
+    console.log("user: ", interactor);
+    // If so then we swap the vote, otherwise continue the normal flow.
+    // TODO: Interacting with the same button twice will cast two votes for one answer and put the other in the negatives.
+    if (interactor[0] && interactor[0].userId) {
+      console.log(yellow(`${interactor} already voted, changing vote.`));
+
+      if (buttonInteraction.customId === "ans0") {
+        await incrementVote(
+          buttonInteraction,
+          {
+            votes0: { increment: 1 },
+            votes1: { increment: -1 },
+          },
+          qInteraction.id
+        );
+
+        await buttonInteraction.reply({
+          content: `You changed your vote to ${question.answer0}`,
+          ephemeral: true,
+        });
+      }
+      if (buttonInteraction.customId === "ans1") {
+        await incrementVote(
+          buttonInteraction,
+          {
+            votes0: { increment: -1 },
+            votes1: { increment: 1 },
+          },
+          qInteraction.id
+        );
+
+        await buttonInteraction.reply({
+          content: `You changed your vote to ${question.answer1}`,
+          ephemeral: true,
+        });
+      }
+
+    } else {
+      if (buttonInteraction.customId === "ans0") {
+        await incrementVote(
+          buttonInteraction,
+          {
+            votes0: { increment: 1 },
+          },
+          qInteraction.id
+        );
+
+        await buttonInteraction.reply({
+          content: `You voted for ${question.answer0}`,
+          ephemeral: true,
+        });
+      }
+      if (buttonInteraction.customId === "ans1") {
+        await incrementVote(
+          buttonInteraction,
+          {
+            votes1: { increment: 1 },
+          },
+          qInteraction.id
+        );
+
+        await buttonInteraction.reply({
+          content: `You voted for ${question.answer1}`,
+          ephemeral: true,
+        });
+      }
     }
   });
 
