@@ -8,6 +8,8 @@ import { SlashCommandBuilder } from "@discordjs/builders";
 import { PrismaClient } from "@prisma/client";
 import state from "../state/state";
 import { yellow } from "chalk";
+import { commands } from "..";
+import { ActivityTypes } from "discord.js/typings/enums";
 
 const prisma = new PrismaClient();
 
@@ -100,6 +102,20 @@ export const execute = async (commandInteraction: CommandInteraction) => {
     time: timer * 1000,
   });
 
+  // Set bot status message
+  let t: number = timer;
+  commandInteraction.client.user?.setActivity({
+    name: `${t.toString()} seconds left!`,
+    type: ActivityTypes.PLAYING,
+  });
+  const interval = setInterval(() => {
+    t -= 5;
+    commandInteraction.client.user?.setActivity({
+      name: `${t.toString()} seconds left!`,
+      type: ActivityTypes.PLAYING,
+    });
+  }, 5000);
+
   collector.on("collect", async (buttonInteraction) => {
     // First we check if this interactor has already cast a vote for this interaction.
     const interactor = await prisma.interaction
@@ -150,7 +166,6 @@ export const execute = async (commandInteraction: CommandInteraction) => {
           ephemeral: true,
         });
       }
-
     } else {
       if (buttonInteraction.customId === "ans0") {
         await incrementVote(
@@ -185,6 +200,16 @@ export const execute = async (commandInteraction: CommandInteraction) => {
 
   collector.on("end", async (collected) => {
     console.log(`Collected ${collected.toJSON()} items`);
+    clearInterval(interval);
+    commandInteraction.client.user?.setStatus("online");
+    commandInteraction.client.user?.setActivity({
+      name: "results!",
+      type: ActivityTypes.WATCHING,
+    });
+
+    setTimeout(() => {
+      commandInteraction.client.user?.setActivity("");
+    }, 5000);
 
     const q = await prisma.interaction.findUnique({
       where: {
