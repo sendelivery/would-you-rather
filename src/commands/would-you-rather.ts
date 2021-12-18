@@ -10,6 +10,7 @@ import state from "../state/state";
 import { yellow } from "chalk";
 import { commands } from "..";
 import { ActivityTypes } from "discord.js/typings/enums";
+import { getInteractor, getQuestionById, incrementVote } from "../database";
 
 const prisma = new PrismaClient();
 
@@ -54,11 +55,7 @@ export const execute = async (commandInteraction: CommandInteraction) => {
   const id = Math.floor(Math.random() * count) + 1;
 
   // Retrieve a random question
-  const question = await prisma.question.findUnique({
-    where: {
-      id: id,
-    },
-  });
+  const question = await getQuestionById(id);
 
   if (!question) {
     return await commandInteraction.reply(
@@ -118,17 +115,7 @@ export const execute = async (commandInteraction: CommandInteraction) => {
 
   collector.on("collect", async (buttonInteraction) => {
     // First we check if this interactor has already cast a vote for this interaction.
-    const interactor = await prisma.interaction
-      .findUnique({
-        where: {
-          commandId: commandInteraction.id,
-        },
-      })
-      .interactors({
-        where: {
-          userId: buttonInteraction.user.id,
-        },
-      });
+    const interactor = await getInteractor(commandInteraction.id, buttonInteraction.user.id);
 
     console.log("user: ", interactor);
     // If so then we swap the vote, otherwise continue the normal flow.
@@ -234,42 +221,5 @@ export const execute = async (commandInteraction: CommandInteraction) => {
     );
 
     state.setActive(false);
-  });
-};
-
-interface IVotes0 {
-  votes0: {
-    increment: number;
-  };
-}
-
-interface IVotes1 {
-  votes1: {
-    increment: number;
-  };
-}
-
-const incrementVote = async (
-  interaction: MessageComponentInteraction,
-  votes: IVotes0 | IVotes1,
-  id: number
-) => {
-  return await prisma.interaction.update({
-    where: {
-      id: id,
-    },
-    data: {
-      ...votes,
-      interactors: {
-        connectOrCreate: {
-          where: {
-            userId: interaction.user.id,
-          },
-          create: {
-            userId: interaction.user.id,
-          },
-        },
-      },
-    },
   });
 };
