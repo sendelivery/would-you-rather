@@ -4,7 +4,7 @@ import fs from "fs";
 import path from "path";
 require("dotenv").config();
 
-const client = new Client({ intents: [Intents.FLAGS.GUILDS] });
+export const client = new Client({ intents: [Intents.FLAGS.GUILDS] });
 
 export const commands: Collection<
   string,

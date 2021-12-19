@@ -27,7 +27,7 @@ export const execute = async (interaction: CommandInteraction) => {
   const newQuestion = await prisma.question.create({
     data: {
       message: `**${ans0}** or **${ans1}**`,
-      author: interaction.user.tag,
+      author: interaction.user.id,
     },
   });
 

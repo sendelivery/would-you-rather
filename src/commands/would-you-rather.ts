@@ -1,6 +1,7 @@
 import { getInteractor, getQuestionById, incrementVote } from "../database";
 import { WouldYouRatherTypes } from "../types";
 import state from "../state/state";
+import questionEmbed from "../embeds/question";
 import {
   CommandInteraction,
   Interaction,
@@ -101,7 +102,7 @@ export const execute = async (commandInteraction: CommandInteraction) => {
     );
 
   await commandInteraction.reply({
-    content: `Would you rather ${question.message}?`,
+    embeds: [await questionEmbed(question)],
     components: [row],
   });
 
