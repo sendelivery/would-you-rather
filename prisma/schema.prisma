@@ -1,6 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -11,31 +8,46 @@ datasource db {
 }
 
 model Question {
-  id              Int             @id @default(autoincrement())
-  message         String          @db.VarChar(255)
-  answer0         String
-  answer1         String
-  author          String
-  interactions    Interaction[]
+  id           Int           @id @default(autoincrement())
+  message      String        @db.VarChar(255)
+  answers      Answer[]
+  author       String
+  interactions Interaction[]
+}
+
+model Answer {
+  id               Int      @id @default(autoincrement())
+  first            Boolean  @default(false)
+  text             String
+  question         Question @relation(fields: [questionId], references: [id])
+  questionId       Int
+  interactionVotes Vote[]
 }
 
 model Interaction {
-  id    Int    @id @default(autoincrement())
-  commandId       String          @unique
-  question        Question        @relation(fields: [questionId], references: [id])
-  questionId      Int
-  votes0          Int             @default(0)
-  votes1          Int             @default(0)
-  time            DateTime        @default(now())
-  interactors     Interactor[]
+  id          Int          @id @default(autoincrement())
+  commandId   String       @unique
+  question    Question     @relation(fields: [questionId], references: [id])
+  questionId  Int
+  votes       Vote[]
+  time        DateTime     @default(now())
+  interactors Interactor[]
 
   @@map("interaction")
 }
 
 model Interactor {
-  id    Int    @id @default(autoincrement())
-  userId          String          @unique
-  interactions    Interaction[]
+  id           Int           @id @default(autoincrement())
+  userId       String        @unique
+  interactions Interaction[]
 
   @@map("interactor")
+}
+
+model Vote {
+  id            String      @unique
+  interaction   Interaction @relation(fields: [interactionId], references: [id])
+  interactionId Int
+  answer        Answer      @relation(fields: [answerId], references: [id])
+  answerId      Int
 }

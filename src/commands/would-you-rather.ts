@@ -1,16 +1,17 @@
+import { getInteractor, getQuestionById, incrementVote } from "../database";
+import { WouldYouRatherTypes } from "../types";
+import state from "../state/state";
 import {
   CommandInteraction,
+  Interaction,
   MessageActionRow,
   MessageButton,
-  MessageComponentInteraction,
 } from "discord.js";
 import { SlashCommandBuilder } from "@discordjs/builders";
-import { PrismaClient } from "@prisma/client";
-import state from "../state/state";
-import { yellow } from "chalk";
-import { commands } from "..";
 import { ActivityTypes } from "discord.js/typings/enums";
-import { getInteractor, getQuestionById, incrementVote } from "../database";
+import { PrismaClient } from "@prisma/client";
+import { partition } from "lodash";
+import { green, yellow } from "chalk";
 
 const prisma = new PrismaClient();
 
@@ -63,20 +64,6 @@ export const execute = async (commandInteraction: CommandInteraction) => {
     );
   }
 
-  const row = new MessageActionRow()
-    .addComponents(
-      new MessageButton()
-        .setCustomId("ans0")
-        .setLabel(question.answer0)
-        .setStyle("PRIMARY")
-    )
-    .addComponents(
-      new MessageButton()
-        .setCustomId("ans1")
-        .setLabel(question.answer1)
-        .setStyle("SUCCESS")
-    );
-
   const qInteraction = await prisma.interaction.upsert({
     where: {
       commandId: commandInteraction.id,
@@ -87,6 +74,31 @@ export const execute = async (commandInteraction: CommandInteraction) => {
       questionId: question.id,
     },
   });
+
+  const answers = await prisma.answer.findMany({
+    where: {
+      questionId: question.id,
+    },
+  });
+
+  console.log(answers);
+
+  const answer0 = answers.filter(({ first }) => first)[0];
+  const answer1 = answers.filter(({ first }) => !first)[0];
+
+  const row = new MessageActionRow()
+    .addComponents(
+      new MessageButton()
+        .setCustomId(answer0.id.toString())
+        .setLabel(answer0.text)
+        .setStyle("PRIMARY")
+    )
+    .addComponents(
+      new MessageButton()
+        .setCustomId(answer1.id.toString())
+        .setLabel(answer1.text)
+        .setStyle("SUCCESS")
+    );
 
   await commandInteraction.reply({
     content: `Would you rather ${question.message}?`,
@@ -102,91 +114,40 @@ export const execute = async (commandInteraction: CommandInteraction) => {
   // Set bot status message
   let t: number = timer;
   commandInteraction.client.user?.setActivity({
-    name: `${t.toString()} seconds left!`,
+    name: `WYR, with ${t.toString()} seconds left!`,
     type: ActivityTypes.PLAYING,
   });
   const interval = setInterval(() => {
     t -= 5;
     commandInteraction.client.user?.setActivity({
-      name: `${t.toString()} seconds left!`,
+      name: `WYR, with ${t.toString()} seconds left!`,
       type: ActivityTypes.PLAYING,
     });
   }, 5000);
 
   collector.on("collect", async (buttonInteraction) => {
-    // First we check if this interactor has already cast a vote for this interaction.
-    const interactor = await getInteractor(commandInteraction.id, buttonInteraction.user.id);
+    await prisma.vote.upsert({
+      where: { id: `${buttonInteraction.user.id}-${qInteraction.id}` },
+      create: {
+        id: `${buttonInteraction.user.id}-${qInteraction.id}`,
+        answerId: parseInt(buttonInteraction.customId),
+        interactionId: qInteraction.id,
+      },
+      update: {},
+    });
 
-    console.log("user: ", interactor);
-    // If so then we swap the vote, otherwise continue the normal flow.
-    // TODO: Interacting with the same button twice will cast two votes for one answer and put the other in the negatives.
-    if (interactor[0] && interactor[0].userId) {
-      console.log(yellow(`${interactor} already voted, changing vote.`));
+    const votedAnswer = await prisma.answer.findUnique({
+      where: { id: parseInt(buttonInteraction.customId) },
+    });
 
-      if (buttonInteraction.customId === "ans0") {
-        await incrementVote(
-          buttonInteraction,
-          {
-            votes0: { increment: 1 },
-            votes1: { increment: -1 },
-          },
-          qInteraction.id
-        );
-
-        await buttonInteraction.reply({
-          content: `You changed your vote to ${question.answer0}`,
-          ephemeral: true,
-        });
-      }
-      if (buttonInteraction.customId === "ans1") {
-        await incrementVote(
-          buttonInteraction,
-          {
-            votes0: { increment: -1 },
-            votes1: { increment: 1 },
-          },
-          qInteraction.id
-        );
-
-        await buttonInteraction.reply({
-          content: `You changed your vote to ${question.answer1}`,
-          ephemeral: true,
-        });
-      }
-    } else {
-      if (buttonInteraction.customId === "ans0") {
-        await incrementVote(
-          buttonInteraction,
-          {
-            votes0: { increment: 1 },
-          },
-          qInteraction.id
-        );
-
-        await buttonInteraction.reply({
-          content: `You voted for ${question.answer0}`,
-          ephemeral: true,
-        });
-      }
-      if (buttonInteraction.customId === "ans1") {
-        await incrementVote(
-          buttonInteraction,
-          {
-            votes1: { increment: 1 },
-          },
-          qInteraction.id
-        );
-
-        await buttonInteraction.reply({
-          content: `You voted for ${question.answer1}`,
-          ephemeral: true,
-        });
-      }
-    }
+    await buttonInteraction.reply({
+      content: `You voted for ${votedAnswer?.text}.`,
+      ephemeral: true,
+    });
   });
 
   collector.on("end", async (collected) => {
-    console.log(`Collected ${collected.toJSON()} items`);
+    console.log(`Collected ${collected.size} items`);
     clearInterval(interval);
     commandInteraction.client.user?.setStatus("online");
     commandInteraction.client.user?.setActivity({
@@ -206,18 +167,64 @@ export const execute = async (commandInteraction: CommandInteraction) => {
 
     if (!q) return;
 
-    const votes0 = q.votes0;
-    const votes1 = q.votes1;
+    const votes = await prisma.vote.findMany({
+      where: { interactionId: qInteraction.id },
+    });
 
-    const [winner, wVotes] =
-      votes0 > votes1 ? [question.answer0, votes0] : [question.answer1, votes1];
+    const [votes0, votes1] = partition(
+      votes,
+      (el) => el.answerId === votes[0].answerId
+    );
 
+    console.log("Votes0", votes0);
+    console.log("Votes1", votes1);
+
+    if (votes0.length === votes1.length) {
+      await commandInteraction.editReply({
+        components: [],
+      });
+
+      const tieTuples = await prisma.answer.findMany({
+        where: {
+          OR: [
+            {
+              id: votes0[0].answerId,
+            },
+            {
+              id: votes1[0].answerId,
+            },
+          ],
+        },
+      });
+
+      await commandInteraction.followUp(
+        `...And it's a tie! Between **${tieTuples[0].text}** and **${
+          tieTuples[1].text
+        }** with ${votes0.length} vote${votes0.length > 1 ? "s" : ""} each!`
+      );
+
+      return;
+    }
+
+    const winner = votes0.length > votes1.length ? votes0 : votes1;
+
+    const winnerTuple = await prisma.answer.findUnique({
+      where: {
+        id: winner[0].answerId,
+      },
+    });
+
+    console.log("WINNER: ", winnerTuple);
+
+    const text = winnerTuple?.text;
+
+    // Remove buttons to vote after timer ends.
     await commandInteraction.editReply({
       components: [],
     });
 
     await commandInteraction.followUp(
-      `...And the winner is... **${winner}** with **${wVotes}** votes!`
+      `...And the winner is... **${text}** with **${winner.length}** votes!`
     );
 
     state.setActive(false);

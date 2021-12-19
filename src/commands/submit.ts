@@ -4,13 +4,6 @@ import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
-interface IQuestion {
-  message: string;
-  answer0: string;
-  answer1: string;
-  author: string;
-}
-
 export const data = new SlashCommandBuilder()
   .setName("submit")
   .setDescription("Submit a question to Would You Rather's database.")
@@ -31,20 +24,31 @@ export const execute = async (interaction: CommandInteraction) => {
   const ans0 = interaction.options.getString("answer1", true).toLowerCase();
   const ans1 = interaction.options.getString("answer2", true).toLowerCase();
 
-  const question: IQuestion = {
-    message: `**${ans0}** or **${ans1}**`,
-    answer0: ans0,
-    answer1: ans1,
-    author: interaction.user.tag
-  };
-
-  console.log(`Submitting ${question.message}...`);
-
   const newQuestion = await prisma.question.create({
-    data: question,
+    data: {
+      message: `**${ans0}** or **${ans1}**`,
+      author: interaction.user.tag,
+    },
+  });
+
+  await prisma.answer.createMany({
+    data: [
+      {
+        text: ans0,
+        first: true,
+        questionId: newQuestion.id,
+      },
+      {
+        text: ans1,
+        questionId: newQuestion.id,
+      },
+    ],
   });
 
   console.log(newQuestion, " success!");
 
-  await interaction.reply({ content: `You submitted: Would you rather ${question.message}?`, ephemeral: true });
+  await interaction.reply({
+    content: `You submitted: Would you rather ${newQuestion.message}?`,
+    ephemeral: true,
+  });
 };
